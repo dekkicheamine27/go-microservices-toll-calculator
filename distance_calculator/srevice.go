@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/go/truck-toll-calculator/types"
@@ -22,8 +21,6 @@ func NewCalculatorService() CalculatorServicer {
 func (s *CalculatorService) CalculateDistance(data types.OBUData) (float64, error) {
 	distance := 0.0
 	if len(s.prevPoint) > 0 {
-		fmt.Println(s.prevPoint)
-		fmt.Println(data)
 		distance = calculateDistance(s.prevPoint[0], s.prevPoint[1], data.Lat, data.Lng)
 	}
 	s.prevPoint = []float64{data.Lat, data.Lng}
