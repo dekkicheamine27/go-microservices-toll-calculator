@@ -1,33 +1,73 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
+	"net"
 	"net/http"
 	"strconv"
+	"time"
 
+	"github.com/go/truck-toll-calculator/aggregator/client"
 	"github.com/go/truck-toll-calculator/types"
+	"google.golang.org/grpc"
 )
 
 func main() {
-	listenAdrr := flag.String("listenaddr", ":5000", "the listen of the HTTP server")
-
+	httpListenAdrr := flag.String("httpAddr", ":5000", "the listen of the HTTP server")
+	grpcListenAdrr := flag.String("grpcAdrr", ":5001", "the listen of the GRPC server")
 	var (
 		store = NewMemoryStore()
 		svc   = NewInvoiceAggregator(store)
 	)
 	svc = NewLogMiddleware(svc)
+	go func()  {
+		log.Fatal(makeGRPCTransport(*grpcListenAdrr, svc))
+	}()
+	time.Sleep(time.Second * 2)
 
-	makeHTTPTransport(*listenAdrr, svc)
+	c, err := client.NewGRPCClient(*grpcListenAdrr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if _, err := c.Client.Aggregate(context.Background(), &types.AggregateRequest{
+		OBUID: 1,
+		Value: 58.5,
+		Unix:  time.Now().UnixNano(),
+	}); err != nil {
+		log.Fatal(err)
+	}
+
+	log.Fatal(makeHTTPTransport(*httpListenAdrr, svc))
 
 }
 
-func makeHTTPTransport(listenAddr string, svc Aggregator) {
-	fmt.Println("server is running on ", listenAddr)
+func makeGRPCTransport(listenAddr string, svc Aggregator) error {
+	fmt.Println("GRPC server is running on ", listenAddr)
+	//make a TCP listeners
+	lis, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		return err
+	}
+
+	defer lis.Close()
+
+	// make a new GRPC natibe server with(options)
+	server := grpc.NewServer([]grpc.ServerOption{}...)
+	//regiter our GRPC server to the GRPC package
+	types.RegisterAggregatorServer(server, NewGRPCAggregatorServer(svc))
+	return server.Serve(lis)
+}
+
+func makeHTTPTransport(listenAddr string, svc Aggregator) error {
+	fmt.Println("HTTP server is running on ", listenAddr)
 	http.HandleFunc("/aggregate", hadleAggregate(svc))
 	http.HandleFunc("/invoice", handleGetInvoice(svc))
-	http.ListenAndServe(listenAddr, nil)
+	return http.ListenAndServe(listenAddr, nil)
 
 }
 

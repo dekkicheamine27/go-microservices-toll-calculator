@@ -17,7 +17,7 @@ func main() {
 	svc := NewCalculatorService()
 	svc = NewLogMiddleware(svc)
 
-	kafkaConsumer, err := NewKafKaConsumer(topic, svc, client.NewClient(aggEndPoint))
+	kafkaConsumer, err := NewKafKaConsumer(topic, svc, client.NewHTTPClient(aggEndPoint))
 	if err != nil {
 		log.Fatal(err)
 	}

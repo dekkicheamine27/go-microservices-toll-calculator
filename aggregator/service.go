@@ -2,6 +2,8 @@ package main
 
 import "github.com/go/truck-toll-calculator/types"
 
+
+
 const basPrice = 3.25
 
 type Aggregator interface{
